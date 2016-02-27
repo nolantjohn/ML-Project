@@ -1,0 +1,91 @@
+---
+title: "Machine Learning Project"
+author: "Nolan"
+date: "March 6, 2016"
+output: html_document
+---
+
+#Executive Summary
+
+This report's objective is to determine how a participant performed the workout, denoted by classe A through E. The data preparation section loads the data sets, simplifies the predictive variables from 160 to 54 predictors, and parses the training data set into a training and a test / validation set. The variable simplification is accomplished through the removal of variables with excessive missing values, descriptive variables such as names, and time variables. The modeling section fits a Random Forest model against the simplified training data and uses the model as a predictor for the validation test data and true test data's classe variable. 
+
+#Data Preparation
+
+**The following outlines the goals and process of this portion of the report:**
+
+1. Load the "caret" and "randomForest" packages
+- Methods of the caret package will be utilized while transforming the data set
+- The randomForest package will be utilized for model fitting
+2. Load the "pml-training.csv" and "pml-testing.csv" data sets from the local directory
+3. Reduce the number of predictor variables
+- The data set originally contains 160 variables, including "classe" the outcome
+- Remove the first 6 rows, as they are descriptive and will not enhance prediction capability
+- After transforming blanks ("") and zero divided items ("#DIV/0!") to "NA", remove variables with more NAs then actual values
+4. Set the seed for reproducibility
+5. Parse the training data into a training and validation test set
+
+```{r, message=FALSE}
+## Load the caret package used for easier data evaluation and randomForest for fitting the model
+require(caret); require(randomForest)
+```
+```{r}
+## Read in the training set
+ptr <- read.csv("pml-training.csv")
+## Read in the test set
+pts <- read.csv("pml-testing.csv")
+## Remove descriptive and time data
+ptr <- ptr[, 7:160]
+## Coerces blanks and items divided by 0 (#DIV/0!) to NA to have a standardized missing value
+ptr[ptr == "" | ptr == "#DIV/0!"] <- NA
+## Remove the columns missing more then half of the observations
+ptr <- ptr[, colSums(is.na(ptr)) < nrow(ptr)/2]
+## Set the seed for reproducibility
+set.seed(55)
+## Make a test data set out of the training data
+inTr <- createDataPartition(y = ptr$classe, p = 0.75, list = F)
+tr <- ptr[inTr, ]
+ts <- ptr[-inTr, ]
+```
+
+#Modeling
+
+Through trial and observation of possible model fits, randomForest, with 10 decision trees, produces a fairly accurate prediction of the "classe" variable. This model was selected for its accuracy and simplicity. Also preprocessing via near zero analysis and pca were attempted. No variables were found to have near zero variance and pca produced a less accurate model.
+
+**The following outlines the goals and process of this portion of the report:**
+
+1. Use randomForest to develop the training model
+2. Use the model and validation test set to perform cross validation
+3. Predict the "classe" outcomes of the test set
+
+**Outcomes and Observations:**
+
+- Out-of-bag error is estimated to be 1.84%
+- Cross validation of the validation test set indicates a 99.78% accuracy rating, an out of sample error of less then .25%
+- Upon entering the predicted "classe" outcomes into the associated quiz, the model performed at 100% accuracy
+
+```{r}
+## Use Random Forest to fit the model
+mFit <- train(classe ~ ., data = tr, method = "rf", ntree = 10)
+mFit$finalModel
+## Test the model against the test data made from the training data
+predts <- predict(mFit, newdata = ts)
+confusionMatrix(predts, ts$classe)
+## Predict the classe values for the true test data
+predpts <- predict(mFit, newdata = pts)
+predpts
+```
+
+#Appendix
+
+##Data Exploration
+
+The goal of this portion of the report is to explore the data to determine its structure. Due to the large number of variables, there will not be any plots in this exploration.
+
+```{r}
+## Take a look at the structure of the data
+str(ptr)
+## Get the mean per classe for each variable
+ptra <- aggregate(. ~ classe, data = ptr, mean)
+## Take a look at the differences in mean per classe for each variable
+str(ptra)
+```
